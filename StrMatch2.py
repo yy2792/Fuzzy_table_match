@@ -80,6 +80,47 @@ def process_column_type(df, float_col = [], str_col = []):
             df.loc[:, col] = df[col].astype(str, errors = 'ignore')
     return df
 
+def combine_two_frames(df1, df2, col, suf = ('_Geneva', '_MUFG')):
+
+    if df1 is None and df2 is None:
+        return None
+
+    if df1 is None:
+        df1 = pd.DataFrame(columns = df2.columns)
+        return combine_two_frames(df1, df2, col, suf)
+
+    if df2 is None:
+        df2 = pd.DataFrame(columns = df1.columns)
+        return combine_two_frames(df1, df2, col, suf)
+
+    df1 = df1.sort_values(by = [col]).reset_index(inplace=False, drop=True)
+    df2 = df2.sort_values(by = [col]).reset_index(inplace=False, drop=True)
+
+    res = pd.merge(df1, df2, left_index = True, right_index = True, how = 'outer', suffixes = suf)
+
+    return res
+
+#only for PR
+def combine_two_frames2(df1, df2, col, suf = ('_Geneva', '_MUFG')):
+
+    if df1 is None and df2 is None:
+        return None
+
+    if df1 is None:
+        df1 = pd.DataFrame(columns = df2.columns)
+        return combine_two_frames(df1, df2, col, suf)
+
+    if df2 is None:
+        df2 = pd.DataFrame(columns = df1.columns)
+        return combine_two_frames(df1, df2, col, suf)
+
+    df1 = df1.sort_values(by = col, ascending = False).reset_index(inplace=False, drop=True)
+    df2 = df2.sort_values(by = col, ascending = False).reset_index(inplace=False, drop=True)
+
+    res = pd.merge(df1, df2, left_index = True, right_index = True, how = 'outer', suffixes = suf)
+
+    return res
+
 #endregion
 
 #region identical
@@ -91,19 +132,19 @@ def if_ident(df1, df2, idx1, idx2, identcols = []):
 
     for i in identcols:
 
-        if isinstance(df1.iloc[idx1][i], str):
+        if isinstance(df1.iloc[idx1][i], str) and isinstance(df2.iloc[idx2][i], str):
 
             if df1.iloc[idx1][i].upper() != df2.iloc[idx2][i].upper():
                 return False
 
-        elif isinstance(df1.iloc[idx1][i], numbers.Number):
+        elif isinstance(df1.iloc[idx1][i], numbers.Number) and isinstance(df2.iloc[idx2][i], numbers.Number):
 
             if df1.iloc[idx1][i] != df2.iloc[idx2][i]:
                 return False
 
         else:
             print("errrrrrrrrrrrrrrrrrrrr")
-            exit(1)
+            return False
 
     return True
 
@@ -293,7 +334,8 @@ class fuzzMatchTable():
 
             return merge_table
 
-        except KeyError:
+        except KeyError as er:
+            print(er)
             print('The comparison column must be initialized first')
 
         except MyError as er:
@@ -425,8 +467,6 @@ class fuzzMatchTable():
             df2_first = list(df2[firstsort])
             df2_idx = list(df2[self.idx_right])
 
-            ptr2 = 0
-
             track_dct = {}
 
             for i in range(len(df1_first)):
@@ -455,6 +495,7 @@ class fuzzMatchTable():
                         df1_first[i] <= df2_first[ptr2] + abs(df2_first[ptr2]) * thred) and \
                         if_ident(self.df1, self.df2, df1_idx[i], df2_idx[ptr2], iden_cols) and \
                         self.if_not_filter(self.df1, self.df2, df1_idx[i], df2_idx[ptr2], ver_cols, thred_cols):
+
                         track_dct[ptr2] = 1
                         stack1.append((df1_idx[i], df2_idx[ptr2]))
                         break
